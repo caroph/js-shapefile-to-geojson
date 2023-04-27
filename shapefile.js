@@ -1,40 +1,38 @@
-(function(window,undefined){
+(function (window, undefined) {
 
-    if(window.document && window.Worker){
-        var worker = null;
+    // if (window.document && window.Worker) {
+    //     var worker = null;
 
-        var Shapefile = function(o, callback){
-            var
-                t = this,
-                o = typeof o == "string" ? {shp: o} : o
+    //     var Shapefile = function (o, callback) {
+    //         var t = this,
+    //             o = typeof o == "string" ? { shp: o } : o
 
-            if (!worker) {
-                var path = (o.jsRoot || "") + "shapefile.js"
-                var w = worker = this.worker = new Worker(path)
-            } else {
-                var w = worker
-            }
+    //         if (!worker) {
+    //             var path = (o.jsRoot || "") + "shapefile.js"
+    //             worker = this.worker = new Worker(path)
+    //         }
 
-            w.onmessage = function(e){
-                t.data = e.date
-                if(callback) callback(e.data)
-            }
+    //         worker.onmessage = function (e) {
+    //             console.log('VEIO MENSAGEM')
+    //             t.data = e.date
+    //             if (callback)
+    //                 callback(e.data)
+    //         }
 
-            w.postMessage(["Load", o])
+    //         worker.postMessage(["Load", o])
 
-            if(o.dbf) this.dbf = new DBF(o.dbf,function(data){
-                w.postMessage(["Add DBF Attributes", data])
-            })
-        }
+    //         if (o.dbf)
+    //             this.dbf = new DBF(o.dbf, (data) => worker.postMessage(["Add DBF Attributes", data]));
+    //     }
 
-        window["Shapefile"] = Shapefile
-        return
-    }
+    //     window["Shapefile"] = Shapefile
+    //     return
+    // }
 
     var IN_WORKER = !window.document
     if (IN_WORKER) {
         importScripts('stream.js')
-        onmessage = function(e){
+        onmessage = function (e) {
             switch (e.data[0]) {
                 case "Load":
                     window.shapefile = new Shapefile(e.data[1])
@@ -65,8 +63,8 @@
         "31": "MultiPatch"
     }
 
-    var Shapefile = function(o,callback){
-        var o = typeof o == "string" ? {shp: o} : o
+    var Shapefile = function (o, callback) {
+        var o = typeof o == "string" ? { shp: o } : o
         this.callback = callback
 
         if (!!(o.shp.lastModifiedDate || o.shp.lastModified))
@@ -77,15 +75,15 @@
 
     Shapefile.prototype = {
         constructor: Shapefile,
-        handleUri: function(o) {
+        handleUri: function (o) {
             var xhr = new XMLHttpRequest(),
                 that = this
-            
+
             xhr.open("GET", o.shp, false)
             xhr.overrideMimeType("text/plain; charset=x-user-defined")
             xhr.send()
 
-            if(200 != xhr.status)
+            if (200 != xhr.status)
                 throw "Unable to load " + o.shp + " status: " + xhr.status
 
             this.url = o.shp
@@ -95,16 +93,16 @@
             this.readRecords()
             this.formatIntoGeoJson()
 
-            if(o.dbf) this.dbf = IN_WORKER ?
+            if (o.dbf) this.dbf = IN_WORKER ?
                 null :
-                new DBF(o.dbf,function(data){
+                new DBF(o.dbf, function (data) {
                     that.addDBFDataToGeoJSON(data)
                     that._postMessage()
                 })
             else this._postMessage()
 
         },
-        handleFile: function(o) {
+        handleFile: function (o) {
             this.options = o
             if (!!window.FileReader) {
                 var reader = new FileReader();
@@ -112,8 +110,8 @@
                 var reader = new FileReaderSync();
             }
 
-            reader.onload = (function(that){
-                return function(e){
+            reader.onload = (function (that) {
+                return function (e) {
                     that.onFileLoad(e.target.result)
                 }
             })(this);
@@ -121,45 +119,46 @@
             if (!!window.FileReader) {
                 reader.readAsBinaryString(o.shp);
             } else {
-                this.onFileLoad(reader.readAsBinaryString(o.shp));   
+                this.onFileLoad(reader.readAsBinaryString(o.shp));
             }
         },
-        onFileLoad: function(data) {
+        onFileLoad: function (data) {
+            that = this;
             this.stream = new Gordon.Stream(data)
 
             this.readFileHeader()
             this.readRecords()
-            this.formatIntoGeoJson()            
+            this.formatIntoGeoJson()
 
-            if(this.options.dbf) this.dbf = IN_WORKER ?
+            if (this.options.dbf) this.dbf = IN_WORKER ?
                 null :
-                new DBF(this.options.dbf,function(data){
+                new DBF(this.options.dbf, function (data) {
                     that.addDBFDataToGeoJSON(data)
                     that._postMessage()
                 })
             else this._postMessage()
         },
-        _postMessage: function() {
+        _postMessage: function () {
             var data = {
-                    header: this.header,
-                    records: this.records,
-                    dbf: this.dbf,
-                    geojson: this.geojson
-                }
+                header: this.header,
+                records: this.records,
+                dbf: this.dbf,
+                geojson: this.geojson
+            }
             if (IN_WORKER) postMessage(data)
             else if (this.callback) this.callback(data)
         },
-        readFileHeader: function(){
+        readFileHeader: function () {
             var s = this.stream,
                 header = this.header = {}
 
             // The main file header is fixed at 100 bytes in length
-            if(s < 100) throw "Invalid Header Length"
+            if (s < 100) throw "Invalid Header Length"
 
             // File code (always hex value 0x0000270a)
             header.fileCode = s.readSI32(true)
 
-            if(header.fileCode != parseInt(0x0000270a))
+            if (header.fileCode != parseInt(0x0000270a))
                 throw "Invalid File Code"
 
             // Unused; five uint32
@@ -188,7 +187,7 @@
             }
 
         },
-        readRecords: function(){
+        readRecords: function () {
             var s = this.stream,
                 records = this.records = [],
                 record
@@ -199,7 +198,7 @@
                 // Record number (1-based)
                 record.id = s.readSI32(true)
 
-                if(record.id == 0) break //no more records
+                if (record.id == 0) break //no more records
 
                 // Record length (in 16-bit words)
                 record.length = s.readSI32(true) * 2
@@ -211,10 +210,10 @@
 
                 records.push(record);
 
-            } while(true);
+            } while (true);
 
         },
-        _readBounds: function(object){
+        _readBounds: function (object) {
             var s = this.stream
 
             object.bounds = {
@@ -226,7 +225,7 @@
 
             return object
         },
-        _readParts: function(record){
+        _readParts: function (record) {
             var s = this.stream,
                 nparts,
                 parts = []
@@ -237,13 +236,13 @@
             record.numPoints = s.readSI32()
 
             // parts array indicates at which index the next part starts at
-            while(nparts--) parts.push(s.readSI32())
+            while (nparts--) parts.push(s.readSI32())
 
             record.parts = parts
 
             return record
         },
-        _readPoint: function(record){
+        _readPoint: function (record) {
             var s = this.stream
 
             record.x = s.readDouble()
@@ -251,12 +250,12 @@
 
             return record
         },
-        _readPoints: function(record){
+        _readPoints: function (record) {
             var s = this.stream,
                 points = [],
                 npoints = record.numPoints || (record.numPoints = s.readSI32())
 
-            while(npoints--)
+            while (npoints--)
                 points.push({
                     x: s.readDouble(),
                     y: s.readDouble()
@@ -266,7 +265,7 @@
 
             return record
         },
-        _readMultiPoint: function(record){
+        _readMultiPoint: function (record) {
             var s = this.stream
 
             this._readBounds(record)
@@ -274,7 +273,7 @@
 
             return record
         },
-        _readPolygon: function(record){
+        _readPolygon: function (record) {
             var s = this.stream
 
             this._readBounds(record)
@@ -283,10 +282,10 @@
 
             return record
         },
-        _readPolyLine: function(record){
+        _readPolyLine: function (record) {
             return this._readPolygon(record);
         },
-        formatIntoGeoJson: function(){
+        formatIntoGeoJson: function () {
             var bounds = this.header.bounds,
                 records = this.records,
                 features = [],
@@ -295,14 +294,14 @@
 
             geojson.type = "FeatureCollection"
             geojson.bbox = [
-                    bounds.left,
-                    bounds.bottom,
-                    bounds.right,
-                    bounds.top
-                ]
+                bounds.left,
+                bounds.bottom,
+                bounds.right,
+                bounds.top
+            ]
             geojson.features = features
 
-            for (var r = 0, record; record = records[r]; r++){
+            for (var r = 0, record; record = records[r]; r++) {
                 feature = {}, fbounds = record.bounds, points = record.points, parts = record.parts
                 feature.type = "Feature"
                 if (record.shapeType !== 'Point') {
@@ -311,7 +310,7 @@
                         fbounds.bottom,
                         fbounds.right,
                         fbounds.top
-                    ]                    
+                    ]
                 }
                 geometry = feature.geometry = {}
 
@@ -320,31 +319,31 @@
                         geometry.type = "Point"
                         geometry.coordinates = [
                             record.x,
-                            record.y ]
+                            record.y]
                         break
                     case "MultiPoint":
                     case "PolyLine":
                         geometry.type = (record.shapeType == "PolyLine" ? "LineString" : "MultiPoint")
                         gcoords = geometry.coordinates = []
 
-                        for (var p = 0; p < points.length; p++){
+                        for (var p = 0; p < points.length; p++) {
                             var point = points[p]
-                            gcoords.push([point.x,point.y])
+                            gcoords.push([point.x, point.y])
                         }
                         break
                     case "Polygon":
                         geometry.type = "Polygon"
                         gcoords = geometry.coordinates = []
 
-                        for (var pt = 0; pt < parts.length; pt++){
+                        for (var pt = 0; pt < parts.length; pt++) {
                             var partIndex = parts[pt],
                                 part = [],
                                 point
 
                             // partIndex 0 == main poly, partIndex > 0 == holes in poly
-                            for (var p = partIndex; p < (parts[pt+1] || points.length); p++){
+                            for (var p = partIndex; p < (parts[pt + 1] || points.length); p++) {
                                 point = points[p]
-                                part.push([point.x,point.y])
+                                part.push([point.x, point.y])
                             }
                             gcoords.push(part)
                         }
@@ -355,10 +354,10 @@
             }
             this.geojson = geojson
 
-            if(this._addDataAfterLoad) this.addDBFDataToGeoJSON(this._addDataAfterLoad);
+            if (this._addDataAfterLoad) this.addDBFDataToGeoJSON(this._addDataAfterLoad);
         },
-        addDBFDataToGeoJSON: function(dbfData){
-            if(!this.geojson) return (this._addDataAfterLoad = dbfData)
+        addDBFDataToGeoJSON: function (dbfData) {
+            if (!this.geojson) return (this._addDataAfterLoad = dbfData)
 
             this.dbf = dbfData
 
@@ -366,7 +365,7 @@
                 len = features.length,
                 records = dbfData.records
 
-            while(len--) features[len].properties = records[len]
+            while (len--) features[len].properties = records[len]
         }
     }
 

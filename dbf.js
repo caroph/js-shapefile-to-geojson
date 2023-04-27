@@ -1,24 +1,24 @@
 (function(window,undefined){
 
-    if(window.document && window.Worker){
-        var worker = new Worker("dbf.js")
+    // if(window.document && window.Worker){
+    //     var worker = new Worker("dbf.js")
 
-        var DBF = function(url, callback){
-            var
-                w = this._worker = worker,
-                t = this
+    //     var DBF = function(url, callback){
+    //         var
+    //             w = this._worker = worker,
+    //             t = this
 
-            w.onmessage = function(e){
-                t.data = e.data
-                if (callback) callback(e.data);
-            };
+    //         w.onmessage = function(e){
+    //             t.data = e.data
+    //             if (callback) callback(e.data);
+    //         };
 
-            w.postMessage(url)
-        }
+    //         w.postMessage(url)
+    //     }
 
-        window["DBF"] = DBF
-        return
-    }
+    //     window["DBF"] = DBF
+    //     return
+    // }
 
     var IN_WORKER = !window.document
     if (IN_WORKER) {
